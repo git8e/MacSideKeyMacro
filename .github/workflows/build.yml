@@ -8,6 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 创建 Release 需要写 contents 权限（默认 token 只读会被 403 拒绝）。
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build
