@@ -1,5 +1,7 @@
 # MacSideKeyMacro
 
+<p align="center"><img src="Resources/AppIcon.svg" width="128" alt="App icon"></p>
+
 **按住鼠标侧键就自动执行的鼠标 + 键盘宏工具（macOS）。**
 
 它的脚本语法**完全兼容 Windows 上的 X-Mouse Button Control（XMBC）** 的「Simulated Keystrokes（模拟按键）」写法，所以你在 XMBC 里写好的脚本可以原样粘贴过来直接用；如果你没见过 XMBC，也没关系 —— 只要把这段脚本当成一种「宏指令文本」照抄即可，下面是完整语法说明。
@@ -62,8 +64,11 @@ swift run sidekey-macro
 打包成 `.app`（CI 也是这么做的）：
 
 ```bash
-./Scripts/package_app.sh          # 产出 dist/MacSideKeyMacro.app
+./Scripts/package_app.sh          # 产出 dist/MacSideKeyMacro.app（含 AppIcon.icns）
 ```
+
+应用图标由 `Resources/AppIcon.svg` 渲染生成（源文件随仓库提供，MIT 可自由使用）：
+`svg → 1024px PNG → iconset → AppIcon.icns`，修改 SVG 后重新执行上面的打包脚本即可刷新。
 
 命令行自检（不启动界面，只验证解析器，CI 会跑）：
 
@@ -113,7 +118,9 @@ Sources/SideKeyMacro/
 ├── KeyCodeMap.swift        按键名 ↔ CGKeyCode
 ├── Permissions.swift       权限查询
 └── DefaultMacro.swift      默认宏脚本
-Scripts/package_app.sh      打包 .app
+Resources/AppIcon.svg       图标源文件（原创，MIT）
+Resources/AppIcon.icns      由 SVG 生成的应用图标
+Scripts/package_app.sh      打包 .app（拷贝 Info.plist 与图标）
 .github/workflows/build.yml CI：构建 + 自检 + 打包 + 发 Release
 ```
 

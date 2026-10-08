@@ -26,6 +26,10 @@ mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 cp "$BIN_PATH" "$APP_PATH/Contents/MacOS/$EXEC_NAME"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_PATH/Contents/Info.plist"
 
+if [[ -f "$ROOT_DIR/Resources/AppIcon.icns" ]]; then
+    cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
+fi
+
 echo "==> ad-hoc 签名"
 codesign --force --sign - "$APP_PATH"
 

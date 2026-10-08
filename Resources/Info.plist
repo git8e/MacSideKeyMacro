@@ -10,6 +10,8 @@
 	<string>sidekey-macro</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.git8e.mac-sidekey-macro</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
