@@ -67,8 +67,15 @@ swift run sidekey-macro
 ./Scripts/package_app.sh          # 产出 dist/MacSideKeyMacro.app（含 AppIcon.icns）
 ```
 
-应用图标由 `Resources/AppIcon.svg` 渲染生成（源文件随仓库提供，MIT 可自由使用）：
-`svg → 1024px PNG → iconset → AppIcon.icns`，修改 SVG 后重新执行上面的打包脚本即可刷新。
+应用图标由 `Resources/AppIcon.svg` 生成（源文件随仓库提供，MIT 可自由使用）。改完 SVG 重新生成：
+
+```bash
+./Scripts/make_icon.sh           # SVG → PNG → 裁透明角 → iconset → AppIcon.icns
+./Scripts/package_app.sh         # 重新打包 .app
+```
+
+> `qlmanage` 渲染 SVG 会垫一层不透明白底，直接用会得到「白色边框」图标；
+> `Scripts/fixalpha.swift` 按 SVG 中圆角矩形的几何精确算出 alpha，把圆角外裁成透明。
 
 命令行自检（不启动界面，只验证解析器，CI 会跑）：
 
@@ -120,6 +127,8 @@ Sources/SideKeyMacro/
 └── DefaultMacro.swift      默认宏脚本
 Resources/AppIcon.svg       图标源文件（原创，MIT）
 Resources/AppIcon.icns      由 SVG 生成的应用图标
+Scripts/make_icon.sh        重新生成图标
+Scripts/fixalpha.swift      修正 qlmanage 白底，裁出透明圆角
 Scripts/package_app.sh      打包 .app（拷贝 Info.plist 与图标）
 .github/workflows/build.yml CI：构建 + 自检 + 打包 + 发 Release
 ```
