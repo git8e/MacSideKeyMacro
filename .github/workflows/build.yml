@@ -1,0 +1,56 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Parser self-test
+        run: .build/release/sidekey-macro --self-test
+
+      - name: Package .app
+        run: ./Scripts/package_app.sh release
+
+      - name: Zip artifact
+        run: |
+          cd dist
+          ditto -c -k --sequesterRsrc --keepParent MacSideKeyMacro.app MacSideKeyMacro-macOS.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacSideKeyMacro-macOS
+          path: dist/MacSideKeyMacro-macOS.zip
+          if-no-files-found: error
+
+      - name: Attach to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/MacSideKeyMacro-macOS.zip
+          generate_release_notes: true
+          body: |
+            ### 安装
+            1. 下载并解压 `MacSideKeyMacro-macOS.zip`，把 `MacSideKeyMacro.app` 拖到「应用程序」
+            2. 首次打开：右键 → 打开（或 `xattr -dr com.apple.quarantine /Applications/MacSideKeyMacro.app`）
+            3. 在「系统设置 → 隐私与安全性 → 辅助功能」里添加并勾选 `MacSideKeyMacro`
+            4. 回到应用点「刷新状态」，然后按住鼠标侧键即可触发
+
+            > macOS 未做正式签名/公证，属正常现象；如提示“已损坏”，在终端执行上面的 `xattr` 命令即可。
