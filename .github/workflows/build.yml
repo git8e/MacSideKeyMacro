@@ -67,11 +67,17 @@ jobs:
             dist/MacSideKeyMacro-macOS.zip
           generate_release_notes: true
           body: |
-            ### 安装
-            1. 下载 `MacSideKeyMacro-<版本>.dmg`，双击打开后把 `MacSideKeyMacro` 拖进「应用程序」
-            2. 首次打开：右键 → 打开（或 `xattr -dr com.apple.quarantine /Applications/MacSideKeyMacro.app`）
-            3. 在「系统设置 → 隐私与安全性 → 辅助功能」里添加并勾选 `MacSideKeyMacro`
-            4. 回到应用点「刷新状态」，然后按住鼠标侧键即可触发
+            ### 下载
 
-            > macOS 未做正式签名/公证，属正常现象；如提示“已损坏”，在终端执行上面的 `xattr` 命令即可。
-            > Release 里也附了 `MacSideKeyMacro-macOS.zip`（解压后同样拖进「应用程序」）。
+            下载 `MacSideKeyMacro-<版本>.dmg`，双击打开后把 `MacSideKeyMacro` 拖进「应用程序」即可。
+            Release 里也附了 `MacSideKeyMacro-macOS.zip`（解压后同样拖进「应用程序」）。
+
+            ### 安装
+
+            1. 首次打开：右键 App → 「打开」；如果提示「已损坏」，执行
+               `xattr -dr com.apple.quarantine /Applications/MacSideKeyMacro.app`
+            2. 系统设置 → 隐私与安全性 → 辅助功能 → 「+」添加 `MacSideKeyMacro` 并勾选
+            3. 回到应用点「刷新状态」，绿点亮起后即可使用
+            4. 语言默认跟随系统，可在「设置 → 语言」切换（简体中文 / 繁體中文 / English）
+
+            > macOS 未做正式签名/公证（ad-hoc 签名），第 1 步属正常现象。
