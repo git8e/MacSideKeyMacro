@@ -144,8 +144,27 @@ sleep 1
 cleanup
 trap - EXIT
 
+# 等挂载点彻底释放，否则 hdiutil convert 会偶发 "Resource temporarily unavailable"。
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -d "/Volumes/$VOLNAME" ] || break
+    sleep 1
+done
+
 echo "==> 压缩为 $DMG"
-hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG" >/dev/null
+convert_ok=0
+for attempt in 1 2 3 4 5; do
+    if hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG" >/dev/null 2>&1; then
+        convert_ok=1
+        break
+    fi
+    echo "    第 $attempt 次压缩失败，重试…"
+    hdiutil detach "/Volumes/$VOLNAME" >/dev/null 2>&1 || true
+    sleep 3
+done
+if [ "$convert_ok" != "1" ]; then
+    echo "error: hdiutil convert 失败: $RW_DMG" >&2
+    exit 1
+fi
 
 rm -f "$RW_DMG"
 rm -rf "$STAGE" "$BG"
