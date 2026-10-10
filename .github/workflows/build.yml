@@ -29,6 +29,13 @@ jobs:
       - name: Parser self-test
         run: .build/release/sidekey-macro --self-test
 
+      - name: Stamp version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
+          echo "Stamped app version $VERSION"
+
       - name: Package .app
         run: ./Scripts/package_app.sh release
 
@@ -37,24 +44,34 @@ jobs:
           cd dist
           ditto -c -k --sequesterRsrc --keepParent MacSideKeyMacro.app MacSideKeyMacro-macOS.zip
 
-      - name: Upload artifact
+      - name: Build DMG
+        run: |
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' dist/MacSideKeyMacro.app/Contents/Info.plist)"
+          ./Scripts/make_dmg.sh "dist/MacSideKeyMacro.app" "$VERSION"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: MacSideKeyMacro-macOS
-          path: dist/MacSideKeyMacro-macOS.zip
+          path: |
+            dist/MacSideKeyMacro-macOS.zip
+            dist/MacSideKeyMacro-*.dmg
           if-no-files-found: error
 
       - name: Attach to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/MacSideKeyMacro-macOS.zip
+          files: |
+            dist/MacSideKeyMacro-*.dmg
+            dist/MacSideKeyMacro-macOS.zip
           generate_release_notes: true
           body: |
             ### 安装
-            1. 下载并解压 `MacSideKeyMacro-macOS.zip`，把 `MacSideKeyMacro.app` 拖到「应用程序」
+            1. 下载 `MacSideKeyMacro-<版本>.dmg`，双击打开后把 `MacSideKeyMacro` 拖进「应用程序」
             2. 首次打开：右键 → 打开（或 `xattr -dr com.apple.quarantine /Applications/MacSideKeyMacro.app`）
             3. 在「系统设置 → 隐私与安全性 → 辅助功能」里添加并勾选 `MacSideKeyMacro`
             4. 回到应用点「刷新状态」，然后按住鼠标侧键即可触发
 
             > macOS 未做正式签名/公证，属正常现象；如提示“已损坏”，在终端执行上面的 `xattr` 命令即可。
+            > Release 里也附了 `MacSideKeyMacro-macOS.zip`（解压后同样拖进「应用程序」）。

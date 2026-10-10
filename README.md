@@ -40,8 +40,8 @@
 
 ## 下载安装
 
-1. 到 [Releases](../../releases) 下载最新的 `MacSideKeyMacro-macOS.zip`
-2. 解压后把 `MacSideKeyMacro.app` 拖进「应用程序」
+1. 到 [Releases](../../releases) 下载最新的 `MacSideKeyMacro-<版本>.dmg`
+2. 双击打开镜像，把里面的 `MacSideKeyMacro` 拖进「应用程序」即可
 3. 首次打开：右键 App → 「打开」；如果提示「已损坏」，在终端执行：
    ```bash
    xattr -dr com.apple.quarantine /Applications/MacSideKeyMacro.app
@@ -51,6 +51,7 @@
 6. 回到应用点「刷新状态」，绿点亮起后即可使用
 
 > macOS 只对 App 做了 ad-hoc 签名（未购买开发者证书做公证），所以第 3 步是正常的。
+> 如果更习惯压缩包，Release 里也附了 `MacSideKeyMacro-macOS.zip`（解压后同样拖进「应用程序」）。
 
 ## 从源码构建
 
@@ -66,6 +67,17 @@ swift run sidekey-macro
 ```bash
 ./Scripts/package_app.sh          # 产出 dist/MacSideKeyMacro.app（含 AppIcon.icns）
 ```
+
+或者用 `make` 一把梭：
+
+```bash
+make app                          # 打包 dist/MacSideKeyMacro.app
+make dmg                          # 再生成 dist/MacSideKeyMacro-<版本>.dmg（拖进 Applications 的安装镜像）
+make run                          # 打包并直接打开
+make test                         # 跑解析器自检
+```
+
+DMG 用经典「拖进 Applications」布局：左侧 App、右侧 Applications 快捷方式、箭头背景，带自定义卷图标。
 
 应用图标由 `Resources/AppIcon.svg` 生成（源文件随仓库提供，MIT 可自由使用）。改完 SVG 重新生成：
 
@@ -130,7 +142,10 @@ Resources/AppIcon.icns      由 SVG 生成的应用图标
 Scripts/make_icon.sh        重新生成图标
 Scripts/fixalpha.swift      修正 qlmanage 白底，裁出透明圆角
 Scripts/package_app.sh      打包 .app（拷贝 Info.plist 与图标）
-.github/workflows/build.yml CI：构建 + 自检 + 打包 + 发 Release
+Scripts/make_dmg.sh         生成 DMG 安装镜像（拖进 Applications 布局）
+Scripts/make_dmg_background.swift 绘制 DMG 背景图
+Makefile                    build / app / dmg / run / test / clean
+.github/workflows/build.yml CI：构建 + 自检 + 打包(.app/.zip/.dmg) + 发 Release
 ```
 
 ## 故障排查
