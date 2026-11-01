@@ -122,12 +122,15 @@ final class SideKeyMonitor {
         case .otherMouseDown, .otherMouseUp:
             let number = Int(event.getIntegerValueField(.mouseEventButtonNumber))
             DebugLog.log("EVENT \(type == .otherMouseDown ? "DOWN" : "UP") button=\(number)")
+            // 记录学习前是否处于捕获状态：onObservedButton 可能会在本次事件里
+            // 结束学习并关闭 capturing，不能因此让“学习用的那一次点击”顺带触发宏。
+            let wasCapturing = isCapturing
             // 只上报额外的鼠标键（侧键等），中键/左右键不参与学习和提示。
             if type == .otherMouseDown, number >= 3 {
                 onObservedButton?(number)
             }
             // 学习模式下只上报按键编号，绝不触发或拦截。
-            guard !isCapturing,
+            guard !wasCapturing, !isCapturing,
                   button.matches(buttonNumber: number, customButtonNumber: customButtonNumber) else {
                 return Unmanaged.passUnretained(event)
             }

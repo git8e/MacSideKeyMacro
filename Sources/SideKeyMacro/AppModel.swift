@@ -19,7 +19,14 @@ final class AppModel: ObservableObject {
     // MARK: - 全局设置
 
     @Published var triggerMode: MacroRunner.TriggerMode {
-        didSet { scheduleSave() }
+        didSet {
+            scheduleSave()
+            guard triggerMode != oldValue else { return }
+            // 切换触发方式时先停掉正在运行的宏，避免“按住”切到“点击切换”后
+            // 丢失 UP 事件而一直循环。
+            sideButtonIsDown = false
+            runner.stopAll()
+        }
     }
 
     @Published var sideButton: SideButton {
@@ -253,20 +260,31 @@ final class AppModel: ObservableObject {
         // 某些鼠标会重复发 DOWN，忽略重复按下，避免把正在跑的宏重新启动。
         guard !sideButtonIsDown else { return }
         sideButtonIsDown = true
-        DebugLog.log("RUN START mode=\(triggerMode.rawValue)")
         switch triggerMode {
         case .once:
+            DebugLog.log("RUN START mode=once")
             runner.runOnce(items: items)
         case .holdLoop, .holdFinish:
+            DebugLog.log("RUN START mode=\(triggerMode.rawValue)")
             runner.startHoldLoop(items: items)
+        case .toggle:
+            if isRunning {
+                DebugLog.log("TOGGLE STOP")
+                runner.stopAll()
+            } else {
+                DebugLog.log("TOGGLE START")
+                runner.startHoldLoop(items: items)
+            }
         }
     }
 
     private func handleSideKeyUp() {
         guard sideButtonIsDown else { return }
         sideButtonIsDown = false
-        DebugLog.log("RUN STOP mode=\(triggerMode.rawValue)")
         guard monitorEnabled, !isLearningSideButton else { return }
+        // 点击切换模式只认下一次 DOWN；鼠标的短促 UP 脉冲不能停掉循环。
+        guard triggerMode != .toggle else { return }
+        DebugLog.log("RUN STOP mode=\(triggerMode.rawValue)")
         runner.sideKeyReleased(mode: triggerMode)
     }
 

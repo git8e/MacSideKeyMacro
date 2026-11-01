@@ -163,11 +163,28 @@ enum L10n {
         )
     }
 
+    static var modeToggle: String {
+        s(
+            "Click to toggle · start / stop",
+            "点击切换 · 按一下开始 / 再按一下停止",
+            "點擊切換 · 按一下開始 / 再按一下停止"
+        )
+    }
+
+    static var modeToggleDetail: String {
+        s(
+            "Each click toggles the loop: the first click starts it, the next click stops it. Use this for mice whose side buttons only send a short click instead of a held state.",
+            "每次点击切换循环状态：第一次点击开始循环，再点一次停止。适用于侧键只发短促点击、没有按住状态的鼠标（例如 Logitech LIFT）。",
+            "每次點擊切換循環狀態：第一次點擊開始循環，再點一次停止。適用於側鍵只發短促點擊、沒有按住狀態的滑鼠（例如 Logitech LIFT）。"
+        )
+    }
+
     static func modeTitle(_ mode: MacroRunner.TriggerMode) -> String {
         switch mode {
         case .once: return modeOnce
         case .holdLoop: return modeHoldLoop
         case .holdFinish: return modeHoldFinish
+        case .toggle: return modeToggle
         }
     }
 
@@ -176,6 +193,7 @@ enum L10n {
         case .once: return modeOnceDetail
         case .holdLoop: return modeHoldLoopDetail
         case .holdFinish: return modeHoldFinishDetail
+        case .toggle: return modeToggleDetail
         }
     }
 

@@ -119,6 +119,11 @@ enum SelfTest {
                    && !SideButton.custom.matches(buttonNumber: 7, customButtonNumber: 6),
                    "自定义侧键匹配失败")
 
+        checkValue("触发方式包含点击切换",
+                   MacroRunner.TriggerMode.allCases.contains(.toggle)
+                   && MacroRunner.TriggerMode(rawValue: "toggle") == .toggle,
+                   "toggle 模式未注册或无法持久化")
+
         if failures > 0 {
             print("自检失败: \(failures) 项")
             exit(1)

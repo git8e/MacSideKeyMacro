@@ -34,6 +34,8 @@ final class MacroRunner {
         case holdLoop
         /// 按住循环，松开跑完当前这一遍
         case holdFinish
+        /// 点一下开始循环，再点一下停止（适合只发点击脉冲、没有按住状态的鼠标）
+        case toggle
 
         var id: String { rawValue }
 
@@ -84,6 +86,9 @@ final class MacroRunner {
             stopAll()
         case .holdFinish:
             releaseFlag.set()
+        case .toggle:
+            // 点击切换模式：短促的 UP 脉冲不能停掉循环，要等下一次点击。
+            break
         }
     }
 
