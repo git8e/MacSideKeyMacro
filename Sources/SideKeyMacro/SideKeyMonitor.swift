@@ -87,6 +87,7 @@ final class SideKeyMonitor {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         isRunning = true
+        DebugLog.log("TAP START button=\(button.rawValue) custom=\(customButtonNumber.map(String.init) ?? "-") intercept=\(intercept)")
     }
 
     func stop() {
@@ -112,6 +113,7 @@ final class SideKeyMonitor {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             // 系统因超时禁用了 Tap，需要立刻重新启用，否则侧键会“失灵”。
+            DebugLog.log("TAP DISABLED type=\(type.rawValue)")
             if let tap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
@@ -119,10 +121,7 @@ final class SideKeyMonitor {
 
         case .otherMouseDown, .otherMouseUp:
             let number = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-            if UserDefaults.standard.bool(forKey: "sidemacro.debugEvents") {
-                NSLog("SideKeyMacro %@ button=%d",
-                      type == .otherMouseDown ? "DOWN" : "UP", number)
-            }
+            DebugLog.log("EVENT \(type == .otherMouseDown ? "DOWN" : "UP") button=\(number)")
             // 只上报额外的鼠标键（侧键等），中键/左右键不参与学习和提示。
             if type == .otherMouseDown, number >= 3 {
                 onObservedButton?(number)

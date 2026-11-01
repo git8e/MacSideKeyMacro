@@ -253,6 +253,7 @@ final class AppModel: ObservableObject {
         // 某些鼠标会重复发 DOWN，忽略重复按下，避免把正在跑的宏重新启动。
         guard !sideButtonIsDown else { return }
         sideButtonIsDown = true
+        DebugLog.log("RUN START mode=\(triggerMode.rawValue)")
         switch triggerMode {
         case .once:
             runner.runOnce(items: items)
@@ -264,6 +265,7 @@ final class AppModel: ObservableObject {
     private func handleSideKeyUp() {
         guard sideButtonIsDown else { return }
         sideButtonIsDown = false
+        DebugLog.log("RUN STOP mode=\(triggerMode.rawValue)")
         guard monitorEnabled, !isLearningSideButton else { return }
         runner.sideKeyReleased(mode: triggerMode)
     }
@@ -362,6 +364,7 @@ final class AppModel: ObservableObject {
     }
 
     func applyMonitor() {
+        DebugLog.log("MONITOR APPLY enabled=\(monitorEnabled) a11y=\(accessibilityGranted) button=\(sideButton.rawValue) custom=\(customSideButtonNumber.map(String.init) ?? "-")")
         // 重启监听会丢掉当前按住的 UP 事件，先停掉由侧键启动的宏，避免松手后一直循环。
         if sideButtonIsDown {
             sideButtonIsDown = false
