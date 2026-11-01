@@ -41,11 +41,11 @@ final class SideKeyMonitor {
         }
     }
 
-    /// 主线程（事件 Tap 所在的 RunLoop）回调。
-    var onButtonDown: (() -> Void)?
-    var onButtonUp: (() -> Void)?
+    /// 主线程（事件 Tap 所在的 RunLoop）回调，必须同步执行，避免按下/松开被异步任务重排。
+    var onButtonDown: (@MainActor () -> Void)?
+    var onButtonUp: (@MainActor () -> Void)?
     /// 任意额外鼠标键（编号 >= 3）按下时回调，用于「学习侧键」和界面上的按键检测。
-    var onObservedButton: ((Int) -> Void)?
+    var onObservedButton: (@MainActor (Int) -> Void)?
 
     private(set) var isRunning = false
 
@@ -107,6 +107,7 @@ final class SideKeyMonitor {
         isCapturing = capturing
     }
 
+    @MainActor
     fileprivate func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
@@ -118,6 +119,10 @@ final class SideKeyMonitor {
 
         case .otherMouseDown, .otherMouseUp:
             let number = Int(event.getIntegerValueField(.mouseEventButtonNumber))
+            if UserDefaults.standard.bool(forKey: "sidemacro.debugEvents") {
+                NSLog("SideKeyMacro %@ button=%d",
+                      type == .otherMouseDown ? "DOWN" : "UP", number)
+            }
             // 只上报额外的鼠标键（侧键等），中键/左右键不参与学习和提示。
             if type == .otherMouseDown, number >= 3 {
                 onObservedButton?(number)
@@ -152,5 +157,8 @@ final class SideKeyMonitor {
 private let sideKeyTapCallback: CGEventTapCallBack = { _, type, event, refcon in
     guard let refcon else { return Unmanaged.passUnretained(event) }
     let monitor = Unmanaged<SideKeyMonitor>.fromOpaque(refcon).takeUnretainedValue()
-    return monitor.handle(type: type, event: event)
+    // Tap 安装在主 RunLoop 上，这里同步回到 MainActor，保证 DOWN/UP 的处理顺序。
+    return MainActor.assumeIsolated {
+        monitor.handle(type: type, event: event)
+    }
 }

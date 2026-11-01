@@ -44,6 +44,7 @@ final class AppModel: ObservableObject {
             scheduleSave()
             if !monitorEnabled {
                 // 关掉监听后不会再收到“松开侧键”，必须主动停下，否则宏会一直循环。
+                sideButtonIsDown = false
                 runner.stopAll()
                 isLearningSideButton = false
             }
@@ -86,6 +87,8 @@ final class AppModel: ObservableObject {
     private let monitor = SideKeyMonitor()
     private var items: [MacroItem] = []
     private var pendingSave: DispatchWorkItem?
+    /// 物理侧键是否处于按下状态，防止重复的 DOWN/UP 事件打乱运行状态。
+    private var sideButtonIsDown = false
 
     var selectedScript: MacroScript? {
         scripts.first(where: { $0.id == selectedScriptID })
@@ -145,14 +148,16 @@ final class AppModel: ObservableObject {
             self?.status = newStatus
         }
 
+        // 这些回调已经在主线程（Tap 所在 RunLoop）上，必须同步处理；
+        // 之前用 Task 异步跳一次 MainActor，按下/松开可能被重排，表现为“松开才触发”。
         monitor.onButtonDown = { [weak self] in
-            Task { @MainActor in self?.handleSideKeyDown() }
+            self?.handleSideKeyDown()
         }
         monitor.onButtonUp = { [weak self] in
-            Task { @MainActor in self?.handleSideKeyUp() }
+            self?.handleSideKeyUp()
         }
         monitor.onObservedButton = { [weak self] number in
-            Task { @MainActor in self?.handleObservedButton(number) }
+            self?.handleObservedButton(number)
         }
 
         reparse()
@@ -245,6 +250,9 @@ final class AppModel: ObservableObject {
 
     private func handleSideKeyDown() {
         guard monitorEnabled, accessibilityGranted, !isLearningSideButton else { return }
+        // 某些鼠标会重复发 DOWN，忽略重复按下，避免把正在跑的宏重新启动。
+        guard !sideButtonIsDown else { return }
+        sideButtonIsDown = true
         switch triggerMode {
         case .once:
             runner.runOnce(items: items)
@@ -254,6 +262,8 @@ final class AppModel: ObservableObject {
     }
 
     private func handleSideKeyUp() {
+        guard sideButtonIsDown else { return }
+        sideButtonIsDown = false
         guard monitorEnabled, !isLearningSideButton else { return }
         runner.sideKeyReleased(mode: triggerMode)
     }
@@ -292,6 +302,7 @@ final class AppModel: ObservableObject {
             return
         }
         // 学习期间不会再收到「松开侧键」，先把正在循环的宏停掉，避免卡住。
+        sideButtonIsDown = false
         runner.stopAll()
         isLearningSideButton = true
         lastObservedButtonNumber = nil
@@ -351,6 +362,11 @@ final class AppModel: ObservableObject {
     }
 
     func applyMonitor() {
+        // 重启监听会丢掉当前按住的 UP 事件，先停掉由侧键启动的宏，避免松手后一直循环。
+        if sideButtonIsDown {
+            sideButtonIsDown = false
+            runner.stopAll()
+        }
         guard monitorEnabled else {
             isLearningSideButton = false
             monitor.stop()
@@ -397,6 +413,7 @@ final class AppModel: ObservableObject {
     }
 
     func shutdown() {
+        sideButtonIsDown = false
         runner.stopAll()
         monitor.stop()
         HeldInputRegistry.shared.releaseAll()
