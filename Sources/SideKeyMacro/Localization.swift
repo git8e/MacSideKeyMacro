@@ -323,7 +323,7 @@ enum L10n {
 
     // MARK: - 侧键选项
 
-    static func sideButtonTitle(_ button: SideButton) -> String {
+    static func sideButtonTitle(_ button: SideButton, customButtonNumber: Int?) -> String {
         switch button {
         case .button4:
             return s("Side Button 1 (button 4)", "侧键 1（按钮4）", "側鍵 1（按鈕4）")
@@ -331,7 +331,70 @@ enum L10n {
             return s("Side Button 2 (button 5)", "侧键 2（按钮5）", "側鍵 2（按鈕5）")
         case .both:
             return s("Either side button", "两个侧键都可触发", "兩個側鍵都可觸發")
+        case .anyExtra:
+            return s("Any extra mouse button", "任意额外鼠标键（按钮4及以上）", "任意額外滑鼠鍵（按鈕4及以上）")
+        case .custom:
+            guard let number = customButtonNumber else {
+                return s("Custom button", "自定义按键", "自訂按鍵")
+            }
+            // CGEvent 的编号从 0 开始，界面显示按人类习惯从 1 开始。
+            let display = number + 1
+            switch resolved {
+            case .en: return "Custom (button \(display))"
+            case .zhHans: return "自定义（按钮\(display)）"
+            case .zhHant: return "自訂（按鈕\(display)）"
+            case .system: return "自定义（按钮\(display)）"
+            }
         }
+    }
+
+    static func detectedMouseButton(_ number: Int?) -> String {
+        guard let number else {
+            return s("No extra mouse button detected yet", "尚未检测到额外鼠标键", "尚未偵測到額外滑鼠鍵")
+        }
+        let display = number + 1
+        switch resolved {
+        case .en: return "Last detected: mouse button \(display)"
+        case .zhHans: return "最近检测到：鼠标按钮\(display)"
+        case .zhHant: return "最近偵測到：滑鼠按鈕\(display)"
+        case .system: return "最近检测到：鼠标按钮\(display)"
+        }
+    }
+
+    static var learnButton: String { s("Learn", "学习侧键", "學習側鍵") }
+
+    static func useDetectedButton(_ number: Int) -> String {
+        let display = number + 1
+        switch resolved {
+        case .en: return "Use button \(display)"
+        case .zhHans: return "使用按钮\(display)"
+        case .zhHant: return "使用按鈕\(display)"
+        case .system: return "使用按钮\(display)"
+        }
+    }
+
+    static var learnPrompt: String {
+        s(
+            "Press the mouse side button you want to use… (if nothing is detected, the mouse driver may be mapping it to a keyboard shortcut)",
+            "请按一下你想用的鼠标侧键…（如果一直没有反应，可能是鼠标驱动把它映射成了键盘快捷键）",
+            "請按一下你想用的滑鼠側鍵…（如果一直沒有反應，可能是滑鼠驅動把它映射成了鍵盤快速鍵）"
+        )
+    }
+
+    static var learnNeedsMonitor: String {
+        s(
+            "Turn on “Listen for side buttons” first.",
+            "请先打开「启用侧键监听」。",
+            "請先開啟「啟用側鍵監聽」。"
+        )
+    }
+
+    static var learnNeedsAccessibility: String {
+        s(
+            "Grant Accessibility permission before learning a side button.",
+            "学习侧键前请先授予「辅助功能」权限。",
+            "學習側鍵前請先授予「輔助功能」權限。"
+        )
     }
 
     // MARK: - 鼠标键名

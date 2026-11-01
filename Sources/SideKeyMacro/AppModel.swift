@@ -26,6 +26,15 @@ final class AppModel: ObservableObject {
         didSet { scheduleSave(); applyMonitor() }
     }
 
+    /// 自定义侧键的 CGEvent 编号（界面显示时 +1）。仅 `sideButton == .custom` 时生效。
+    @Published private(set) var customSideButtonNumber: Int?
+
+    /// 最近一次检测到的额外鼠标键编号，用于界面提示。
+    @Published private(set) var lastObservedButtonNumber: Int?
+
+    /// 是否正在等待用户按下要绑定的侧键。
+    @Published private(set) var isLearningSideButton = false
+
     @Published var interceptSideKey: Bool {
         didSet { scheduleSave(); applyMonitor() }
     }
@@ -36,6 +45,7 @@ final class AppModel: ObservableObject {
             if !monitorEnabled {
                 // 关掉监听后不会再收到“松开侧键”，必须主动停下，否则宏会一直循环。
                 runner.stopAll()
+                isLearningSideButton = false
             }
             applyMonitor()
         }
@@ -81,13 +91,32 @@ final class AppModel: ObservableObject {
         scripts.first(where: { $0.id == selectedScriptID })
     }
 
+    /// 下拉框里可选的触发方式。未学习过自定义按键时不显示「自定义」。
+    var availableSideButtons: [SideButton] {
+        var options: [SideButton] = [.button4, .button5, .both, .anyExtra]
+        if customSideButtonNumber != nil {
+            options.append(.custom)
+        }
+        return options
+    }
+
+    /// 最近检测到的按键是否已经在当前触发设置里。
+    var detectedButtonIsBound: Bool {
+        guard let number = lastObservedButtonNumber else { return false }
+        return sideButton.matches(buttonNumber: number, customButtonNumber: customSideButtonNumber)
+    }
+
     // MARK: - 初始化
 
     private init() {
         let settings = AppModel.loadSettings()
 
         triggerMode = settings.triggerMode.flatMap { MacroRunner.TriggerMode(rawValue: $0) } ?? .holdLoop
-        sideButton = settings.sideButton.flatMap { SideButton(rawValue: $0) } ?? .both
+        let storedCustomButtonNumber = settings.customSideButtonNumber
+        customSideButtonNumber = storedCustomButtonNumber
+        let storedButton = settings.sideButton.flatMap { SideButton(rawValue: $0) } ?? .both
+        // 旧配置可能选了「自定义」却没有编号，回退到默认值避免监听不到任何按键。
+        sideButton = (storedButton == .custom && storedCustomButtonNumber == nil) ? .both : storedButton
         interceptSideKey = settings.interceptSideKey ?? true
         monitorEnabled = settings.monitorEnabled ?? true
         defaultHoldMs = settings.defaultHoldMs ?? MacroDSL.defaultHoldMs
@@ -121,6 +150,9 @@ final class AppModel: ObservableObject {
         }
         monitor.onButtonUp = { [weak self] in
             Task { @MainActor in self?.handleSideKeyUp() }
+        }
+        monitor.onObservedButton = { [weak self] number in
+            Task { @MainActor in self?.handleObservedButton(number) }
         }
 
         reparse()
@@ -212,7 +244,7 @@ final class AppModel: ObservableObject {
     // MARK: - 触发
 
     private func handleSideKeyDown() {
-        guard monitorEnabled, accessibilityGranted else { return }
+        guard monitorEnabled, accessibilityGranted, !isLearningSideButton else { return }
         switch triggerMode {
         case .once:
             runner.runOnce(items: items)
@@ -222,8 +254,56 @@ final class AppModel: ObservableObject {
     }
 
     private func handleSideKeyUp() {
-        guard monitorEnabled else { return }
+        guard monitorEnabled, !isLearningSideButton else { return }
         runner.sideKeyReleased(mode: triggerMode)
+    }
+
+    /// 记录任意额外鼠标键；学习模式下把第一次按下的键设为触发键。
+    private func handleObservedButton(_ number: Int) {
+        lastObservedButtonNumber = number
+        guard isLearningSideButton else { return }
+
+        isLearningSideButton = false
+        monitor.setCapturing(false)
+        customSideButtonNumber = number
+        sideButton = .custom
+    }
+
+    /// 把最近检测到的鼠标键直接设为触发键（无需再按一次）。
+    func useLastObservedButton() {
+        guard let number = lastObservedButtonNumber else { return }
+        isLearningSideButton = false
+        monitor.setCapturing(false)
+        customSideButtonNumber = number
+        sideButton = .custom
+    }
+
+    func beginSideButtonLearning() {
+        guard monitorEnabled else {
+            monitorMessage = L10n.learnNeedsMonitor
+            return
+        }
+        guard accessibilityGranted else {
+            monitorMessage = L10n.learnNeedsAccessibility
+            return
+        }
+        guard monitor.isRunning else {
+            monitorMessage = L10n.tapCreateFailed
+            return
+        }
+        // 学习期间不会再收到「松开侧键」，先把正在循环的宏停掉，避免卡住。
+        runner.stopAll()
+        isLearningSideButton = true
+        lastObservedButtonNumber = nil
+        monitor.setCapturing(true)
+        monitorMessage = L10n.learnPrompt
+    }
+
+    func cancelSideButtonLearning() {
+        guard isLearningSideButton else { return }
+        isLearningSideButton = false
+        monitor.setCapturing(false)
+        applyMonitor()
     }
 
     func runTest() {
@@ -272,21 +352,33 @@ final class AppModel: ObservableObject {
 
     func applyMonitor() {
         guard monitorEnabled else {
+            isLearningSideButton = false
             monitor.stop()
             monitorMessage = nil
             return
         }
         guard accessibilityGranted else {
+            isLearningSideButton = false
             monitor.stop()
             monitorMessage = L10n.waitingForAccessibility
             return
         }
         do {
-            try monitor.start(button: sideButton, intercept: interceptSideKey)
-            monitorMessage = interceptSideKey
-                ? L10n.listeningIntercepting
-                : L10n.listeningPassing
+            try monitor.start(
+                button: sideButton,
+                customButtonNumber: customSideButtonNumber,
+                intercept: interceptSideKey
+            )
+            if isLearningSideButton {
+                monitor.setCapturing(true)
+                monitorMessage = L10n.learnPrompt
+            } else {
+                monitorMessage = interceptSideKey
+                    ? L10n.listeningIntercepting
+                    : L10n.listeningPassing
+            }
         } catch {
+            isLearningSideButton = false
             monitor.stop()
             monitorMessage = error.localizedDescription
         }
@@ -317,6 +409,7 @@ final class AppModel: ObservableObject {
         var macroText: String? = nil
         var triggerMode: String? = nil
         var sideButton: String? = nil
+        var customSideButtonNumber: Int? = nil
         var interceptSideKey: Bool? = nil
         var monitorEnabled: Bool? = nil
         var defaultHoldMs: Double? = nil
@@ -364,6 +457,7 @@ final class AppModel: ObservableObject {
         let settings = PersistedSettings(
             triggerMode: triggerMode.rawValue,
             sideButton: sideButton.rawValue,
+            customSideButtonNumber: customSideButtonNumber,
             interceptSideKey: interceptSideKey,
             monitorEnabled: monitorEnabled,
             defaultHoldMs: defaultHoldMs

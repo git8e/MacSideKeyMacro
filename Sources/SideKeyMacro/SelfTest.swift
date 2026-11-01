@@ -103,6 +103,22 @@ enum SelfTest {
                    "存在空的语言选项")
         L10n.language = originalLanguage
 
+        // MARK: 侧键匹配
+
+        checkValue("侧键 1/2 与任意额外键匹配",
+                   SideButton.button4.matches(buttonNumber: 3, customButtonNumber: nil)
+                   && SideButton.button5.matches(buttonNumber: 4, customButtonNumber: nil)
+                   && SideButton.both.matches(buttonNumber: 3, customButtonNumber: nil)
+                   && SideButton.both.matches(buttonNumber: 4, customButtonNumber: nil)
+                   && !SideButton.both.matches(buttonNumber: 5, customButtonNumber: nil)
+                   && SideButton.anyExtra.matches(buttonNumber: 5, customButtonNumber: nil)
+                   && !SideButton.anyExtra.matches(buttonNumber: 2, customButtonNumber: nil),
+                   "侧键匹配逻辑不符合预期")
+        checkValue("自定义侧键按编号精确匹配",
+                   SideButton.custom.matches(buttonNumber: 7, customButtonNumber: 7)
+                   && !SideButton.custom.matches(buttonNumber: 7, customButtonNumber: 6),
+                   "自定义侧键匹配失败")
+
         if failures > 0 {
             print("自检失败: \(failures) 项")
             exit(1)

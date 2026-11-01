@@ -110,12 +110,40 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Picker("", selection: $model.sideButton) {
-                        ForEach(SideButton.allCases) { button in
-                            Text(button.title).tag(button)
+                        ForEach(model.availableSideButtons) { button in
+                            Text(button.title(customButtonNumber: model.customSideButtonNumber))
+                                .tag(button)
                         }
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
+                }
+
+                HStack(spacing: 8) {
+                    Text(L10n.detectedMouseButton(model.lastObservedButtonNumber))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    Spacer()
+                    Button(learnButtonTitle) {
+                        if model.isLearningSideButton {
+                            model.cancelSideButtonLearning()
+                        } else if model.lastObservedButtonNumber != nil,
+                                  !model.detectedButtonIsBound {
+                            model.useLastObservedButton()
+                        } else {
+                            model.beginSideButtonLearning()
+                        }
+                    }
+                    .controlSize(.small)
+                    .disabled(!model.monitorEnabled || !model.accessibilityGranted)
+                }
+
+                if model.isLearningSideButton {
+                    Text(L10n.learnPrompt)
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Toggle(L10n.interceptToggle, isOn: $model.interceptSideKey)
@@ -143,6 +171,17 @@ struct ContentView: View {
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// 学习按钮的文案：等待按键时是「取消」；检测到未绑定的键时直接显示「使用按钮N」。
+    private var learnButtonTitle: String {
+        if model.isLearningSideButton {
+            return L10n.cancelButton
+        }
+        if let number = model.lastObservedButtonNumber, !model.detectedButtonIsBound {
+            return L10n.useDetectedButton(number)
+        }
+        return L10n.learnButton
     }
 
     // MARK: - 状态 / 手动控制

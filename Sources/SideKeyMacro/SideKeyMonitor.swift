@@ -6,19 +6,24 @@ enum SideButton: String, CaseIterable, Identifiable {
     case button4
     case button5
     case both
+    case anyExtra
+    case custom
 
     var id: String { rawValue }
 
-    var title: String {
-        L10n.sideButtonTitle(self)
+    func title(customButtonNumber: Int?) -> String {
+        L10n.sideButtonTitle(self, customButtonNumber: customButtonNumber)
     }
 
     /// CGEvent 的 `mouseEventButtonNumber`：3 = X1(侧键1)，4 = X2(侧键2)。
-    func matches(buttonNumber: Int) -> Bool {
+    /// 不同鼠标可能把侧键映射到更大的编号（5、6…），因此额外提供「任意额外键」和自定义绑定。
+    func matches(buttonNumber: Int, customButtonNumber: Int?) -> Bool {
         switch self {
         case .button4: return buttonNumber == 3
         case .button5: return buttonNumber == 4
         case .both: return buttonNumber == 3 || buttonNumber == 4
+        case .anyExtra: return buttonNumber >= 3
+        case .custom: return customButtonNumber == buttonNumber
         }
     }
 }
@@ -39,18 +44,25 @@ final class SideKeyMonitor {
     /// 主线程（事件 Tap 所在的 RunLoop）回调。
     var onButtonDown: (() -> Void)?
     var onButtonUp: (() -> Void)?
+    /// 任意额外鼠标键（编号 >= 3）按下时回调，用于「学习侧键」和界面上的按键检测。
+    var onObservedButton: ((Int) -> Void)?
 
     private(set) var isRunning = false
 
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var button = SideButton.both
+    private var customButtonNumber: Int?
     private var intercept = true
+    /// 学习模式下只观察按键，不触发宏，也不拦截事件。
+    private var isCapturing = false
 
-    func start(button: SideButton, intercept: Bool) throws {
+    func start(button: SideButton, customButtonNumber: Int?, intercept: Bool) throws {
         stop()
         self.button = button
+        self.customButtonNumber = customButtonNumber
         self.intercept = intercept
+        isCapturing = false
 
         let eventsOfInterest: CGEventMask =
             (CGEventMask(1) << CGEventType.otherMouseDown.rawValue) |
@@ -87,6 +99,12 @@ final class SideKeyMonitor {
         tap = nil
         runLoopSource = nil
         isRunning = false
+        isCapturing = false
+    }
+
+    /// 进入/退出学习模式。学习期间不触发宏，也不拦截侧键事件。
+    func setCapturing(_ capturing: Bool) {
+        isCapturing = capturing
     }
 
     fileprivate func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -100,7 +118,13 @@ final class SideKeyMonitor {
 
         case .otherMouseDown, .otherMouseUp:
             let number = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-            guard button.matches(buttonNumber: number) else {
+            // 只上报额外的鼠标键（侧键等），中键/左右键不参与学习和提示。
+            if type == .otherMouseDown, number >= 3 {
+                onObservedButton?(number)
+            }
+            // 学习模式下只上报按键编号，绝不触发或拦截。
+            guard !isCapturing,
+                  button.matches(buttonNumber: number, customButtonNumber: customButtonNumber) else {
                 return Unmanaged.passUnretained(event)
             }
             if type == .otherMouseDown {
